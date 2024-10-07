@@ -35,11 +35,12 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const st
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
-            message["speed"] = 20;
-            message["Voltage"] = 30;
+            message["reported"] = {};
+            message["reported"]["speed"] = std::rand() % 100;  // Vitesse aléatoire entre 0 et 100
+            message["reported"]["battery"] = std::rand() % 100; // Batterie aléatoire entre 0 et 100
 
             std::string payload = message.dump();
-            std::string topic = "/torqeedo/" + serial_id;
+            std::string topic = "/update/" + serial_id + "/torqeedo";
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
@@ -48,6 +49,7 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const st
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         } catch (const mqtt::exception& exc) {
             std::cerr << "[TORQEEDO] Erreur lors de la publication: " << exc.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
         }
     }
     std::cout << "[TORQEEDO] Thread désactivé." << std::endl;
@@ -65,11 +67,13 @@ void publish_gps(mqtt::async_client& client, int interval_seconds, const std::st
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
-            message["latitude"] = lat_dist(gen);  // Générer une latitude aléatoire
-            message["longitude"] = lon_dist(gen); // Générer une longitude aléatoire
+            message["reported"] = {};
+            message["reported"]["latitude"] = lat_dist(gen);
+            message["reported"]["longitude"] = lon_dist(gen);
+           
 
             std::string payload = message.dump();
-            std::string topic = "/gps/" + serial_id;
+            std::string topic = "/update/" + serial_id + "/gps";
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
@@ -78,6 +82,7 @@ void publish_gps(mqtt::async_client& client, int interval_seconds, const std::st
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         } catch (const mqtt::exception& exc) {
             std::cerr << "[GPS] Erreur lors de la publication: " << exc.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
         }
     }
     std::cout << "[GPS] Thread désactivé." << std::endl;
