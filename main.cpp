@@ -5,6 +5,8 @@
 #include <ctime>
 #include <atomic>
 #include <csignal>
+#include <cstdlib>  // Pour std::rand() et std::srand()
+#include <random>   // Pour un générateur de nombres aléatoires
 
 // Inclure les en-têtes de Paho MQTT C++
 #include "mqtt/async_client.h"
@@ -27,7 +29,7 @@ void signal_handler(int signal) {
     }
 }
 
-void publish_torqeedo(mqtt::async_client& client, int interval_seconds) {
+void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
     while (running) {
         try {
             json message;
@@ -37,10 +39,11 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds) {
             message["Voltage"] = 30;
 
             std::string payload = message.dump();
-            mqtt::message_ptr pubmsg = mqtt::make_message("/torqeedo", payload);
+            std::string topic = "/torqeedo/" + serial_id;
+            mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
-            std::cout << "[TORQEEDO] Message publié: " << payload << std::endl;
+            std::cout << "[TORQEEDO] Message publié sur le topic " << topic << ": " << payload << std::endl;
 
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         } catch (const mqtt::exception& exc) {
@@ -50,20 +53,27 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds) {
     std::cout << "[TORQEEDO] Thread désactivé." << std::endl;
 }
 
-void publish_gps(mqtt::async_client& client, int interval_seconds) {
+void publish_gps(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
+    // Configurer un générateur de nombres aléatoires pour latitude et longitude
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> lat_dist(44.0, 46.0);  // Latitude entre 44 et 46
+    std::uniform_real_distribution<> lon_dist(28.0, 30.0);  // Longitude entre 28 et 30
+
     while (running) {
         try {
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
-            message["latitude"] = 45.2727; // Correction de 'lattitude' à 'latitude'
-            message["longitude"] = 29.2882;
+            message["latitude"] = lat_dist(gen);  // Générer une latitude aléatoire
+            message["longitude"] = lon_dist(gen); // Générer une longitude aléatoire
 
             std::string payload = message.dump();
-            mqtt::message_ptr pubmsg = mqtt::make_message("/gps", payload);
+            std::string topic = "/gps/" + serial_id;
+            mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
-            std::cout << "[GPS] Message publié: " << payload << std::endl;
+            std::cout << "[GPS] Message publié sur le topic " << topic << ": " << payload << std::endl;
 
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         } catch (const mqtt::exception& exc) {
@@ -90,9 +100,12 @@ int main(int argc, char* argv[]) {
         int torqeedo_interval = 5; // Intervalle pour torqeedo en secondes
         int gps_interval = 3;      // Intervalle pour gps en secondes
 
+        // Générer un identifiant de série aléatoire pour GPS
+        std::string serial_id = "GPS_" + std::to_string(std::rand() % 10000);
+
         // Démarrer les threads pour l'envoi des messages
-        std::thread torqeedo_thread(publish_torqeedo, std::ref(client), torqeedo_interval);
-        std::thread gps_thread(publish_gps, std::ref(client), gps_interval);
+        std::thread torqeedo_thread(publish_torqeedo, std::ref(client), torqeedo_interval, serial_id);
+        std::thread gps_thread(publish_gps, std::ref(client), gps_interval, serial_id);
 
         // Attendre l'arrêt du programme
         torqeedo_thread.join();
