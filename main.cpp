@@ -115,12 +115,29 @@ void reconnect(mqtt::async_client& client, mqtt::connect_options& connOpts, cons
             pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
-
             break; // Quitter la boucle si la connexion réussit
         } catch (const mqtt::exception& exc) {
             std::cerr << "Erreur lors de la reconnexion: " << exc.what() << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(5));
         }
+    }
+}
+
+void message_callback(mqtt::const_message_ptr msg) {
+    std::cout << "Message reçu sur le topic: " << msg->get_topic() << "\nContenu: " << msg->to_string() << std::endl;
+
+    // Analyser le message JSON et réagir en fonction du statut
+    try {
+        json message = json::parse(msg->to_string());
+        if (msg->get_topic().find("/get/accepted/") != std::string::npos) {
+            std::cout << "[SHADOW ACCEPTED] Mise à jour reçue: " << message.dump(4) << std::endl;
+            // Ici, vous pouvez traiter la mise à jour du shadow comme nécessaire
+        } else if (msg->get_topic().find("/get/rejected/") != std::string::npos) {
+            std::cout << "[SHADOW REJECTED] Demande rejetée: " << message.dump(4) << std::endl;
+            // Ici, vous pouvez traiter les erreurs ou réagir à un rejet
+        }
+    } catch (const json::exception& e) {
+        std::cerr << "Erreur lors de l'analyse du message JSON: " << e.what() << std::endl;
     }
 }
 
@@ -134,7 +151,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, signal_handler);
 
     try {
-        // Connexion au broker MQTT
+        // Configurer le callback pour la réception de messages
+        client.set_callback([&](mqtt::const_message_ptr msg) {
+            message_callback(msg);
+        });
 
         int torqeedo_interval = 5; // Intervalle pour torqeedo en secondes
         int gps_interval = 3;      // Intervalle pour gps en secondes
