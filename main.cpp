@@ -32,6 +32,9 @@ void signal_handler(int signal) {
 void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
     while (running) {
         try {
+            while (!client.is_connected()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
@@ -64,13 +67,15 @@ void publish_gps(mqtt::async_client& client, int interval_seconds, const std::st
 
     while (running) {
         try {
+            while (!client.is_connected()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
             message["reported"] = {};
             message["reported"]["latitude"] = lat_dist(gen);
             message["reported"]["longitude"] = lon_dist(gen);
-           
 
             std::string payload = message.dump();
             std::string topic = "/update/" + serial_id + "/gps";
@@ -88,6 +93,37 @@ void publish_gps(mqtt::async_client& client, int interval_seconds, const std::st
     std::cout << "[GPS] Thread désactivé." << std::endl;
 }
 
+void reconnect(mqtt::async_client& client, mqtt::connect_options& connOpts, const std::string& serial_id) {
+    while (running) {
+        try {
+            std::cout << "Tentative de connexion au broker MQTT..." << std::endl;
+            client.connect(connOpts)->wait();
+            std::cout << "Connecté au broker MQTT avec succès." << std::endl;
+
+            // Publier un message spécifique indiquant la reconnexion
+            json message;
+            message["status"] = "reconnected";
+            message["time"] = std::to_string(std::time(nullptr));
+            std::string payload = message.dump();
+            std::string topic = "/reconnected/" + serial_id;
+            mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
+            client.publish(pubmsg);
+            message["status"] = "need shadow";
+            message["time"] = std::to_string(std::time(nullptr));
+            payload = message.dump();
+            topic = "/get/" + serial_id;
+            pubmsg = mqtt::make_message(topic, payload);
+            client.publish(pubmsg);
+
+
+            break; // Quitter la boucle si la connexion réussit
+        } catch (const mqtt::exception& exc) {
+            std::cerr << "Erreur lors de la reconnexion: " << exc.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
     mqtt::async_client client(ADDRESS, CLIENT_ID);
     mqtt::connect_options connOpts;
@@ -99,8 +135,6 @@ int main(int argc, char* argv[]) {
 
     try {
         // Connexion au broker MQTT
-        client.connect(connOpts)->wait();
-        std::cout << "Connecté au broker MQTT avec succès." << std::endl;
 
         int torqeedo_interval = 5; // Intervalle pour torqeedo en secondes
         int gps_interval = 3;      // Intervalle pour gps en secondes
@@ -112,7 +146,15 @@ int main(int argc, char* argv[]) {
         std::thread torqeedo_thread(publish_torqeedo, std::ref(client), torqeedo_interval, serial_id);
         std::thread gps_thread(publish_gps, std::ref(client), gps_interval, serial_id);
 
-        // Attendre l'arrêt du programme
+        // Boucle principale pour surveiller la connexion
+        while (running) {
+            if (!client.is_connected()) {
+                reconnect(client, connOpts, serial_id);
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        // Attendre l'arrêt des threads
         torqeedo_thread.join();
         gps_thread.join();
 
