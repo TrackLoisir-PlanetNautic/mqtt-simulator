@@ -122,6 +122,6 @@ Avec ces étapes, vous devriez être en mesure de compiler et exécuter votre pr
 
 
 
-
+## Important :
 export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 ./mqtt_client

@@ -17,10 +17,13 @@
 using json = nlohmann::json;
 
 // MQTT broker configuration
-const std::string ADDRESS = "mqtt://localhost:1883";
+const std::string ADDRESS = "mqtt://51.83.47.206:1883";
 const std::string CLIENT_ID = "mqtt_cpp_client";
 
 std::atomic<bool> running(true);
+
+// Declare serial_id as a global variable
+std::string serial_id;
 
 void signal_handler(int signal) {
     if (signal == SIGINT) {
@@ -38,12 +41,11 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const st
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
-            message["reported"] = {};
-            message["reported"]["speed"] = std::rand() % 100;    // Random speed between 0 and 99
-            message["reported"]["battery"] = std::rand() % 100;  // Random battery between 0 and 99
+            message["speed"] = std::rand() % 100;    // Random speed between 0 and 99
+            message["battery"] = std::rand() % 100;  // Random battery between 0 and 99
 
             std::string payload = message.dump();
-            std::string topic = "/update/" + serial_id + "/torqeedo";
+            std::string topic = "/data/" + serial_id + "/torqeedo";
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
@@ -73,12 +75,11 @@ void publish_gps(mqtt::async_client& client, int interval_seconds, const std::st
             json message;
             std::time_t t = std::time(nullptr);
             message["time"] = std::to_string(t);
-            message["reported"] = {};
-            message["reported"]["latitude"] = lat_dist(gen);
-            message["reported"]["longitude"] = lon_dist(gen);
+            message["latitude"] = lat_dist(gen);
+            message["longitude"] = lon_dist(gen);
 
             std::string payload = message.dump();
-            std::string topic = "/update/" + serial_id + "/gps";
+            std::string topic = "/data/" + serial_id + "/gps";
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
@@ -105,16 +106,16 @@ void reconnect(mqtt::async_client& client, mqtt::connect_options& connOpts, cons
             message["status"] = "reconnected";
             message["time"] = std::to_string(std::time(nullptr));
             std::string payload = message.dump();
-            std::string topic = "/reconnected/" + serial_id;
+            std::string topic = "/reconnection/" + serial_id;
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
             
-            client.subscribe("/get/accepted/" + serial_id, 1);
+            client.subscribe("/shadow/"+ serial_id + "/get/accepted/" , 1);
             // Request shadow update
             message["status"] = "need shadow";
             message["time"] = std::to_string(std::time(nullptr));
             payload = message.dump();
-            topic = "/get/" + serial_id;
+            topic = "/shadow/"+ serial_id + "/get";
             pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
@@ -132,10 +133,10 @@ void message_callback(mqtt::const_message_ptr msg) {
     // Parse the JSON message and react based on the status
     try {
         json message = json::parse(msg->to_string());
-        if (msg->get_topic().find("/get/accepted/") != std::string::npos) {
+        if (msg->get_topic().find("shadow/"+ serial_id + "/get/accepted/") != std::string::npos) {
             std::cout << "[SHADOW ACCEPTED] Update received: " << message.dump(4) << std::endl;
             // Process the shadow update as needed
-        } else if (msg->get_topic().find("/get/rejected/") != std::string::npos) {
+        } else if (msg->get_topic().find("shadow/"+ serial_id + "/get/rejected/") != std::string::npos) {
             std::cout << "[SHADOW REJECTED] Request rejected: " << message.dump(4) << std::endl;
             // Handle errors or react to a rejection
         }
