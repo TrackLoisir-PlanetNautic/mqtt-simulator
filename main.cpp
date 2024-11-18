@@ -32,7 +32,7 @@ void signal_handler(int signal) {
     }
 }
 
-void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
+void publish_jetbrain_data(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
     while (running) {
         try {
             while (!client.is_connected()) {
@@ -45,22 +45,22 @@ void publish_torqeedo(mqtt::async_client& client, int interval_seconds, const st
             message["battery"] = std::rand() % 100;  // Random battery between 0 and 99
 
             std::string payload = message.dump();
-            std::string topic = "/data/" + serial_id + "/torqeedo";
+            std::string topic = "/data/" + serial_id + "/jetbrain";
             mqtt::message_ptr pubmsg = mqtt::make_message(topic, payload);
             client.publish(pubmsg);
 
-            std::cout << "[TORQEEDO] Message published on topic " << topic << ": " << payload << std::endl;
+            std::cout << "[jetbrain] Message published on topic " << topic << ": " << payload << std::endl;
 
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
         } catch (const mqtt::exception& exc) {
-            std::cerr << "[TORQEEDO] Error during publish: " << exc.what() << std::endl;
+            std::cerr << "[jetbrain] Error during publish: " << exc.what() << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(5));
         }
     }
-    std::cout << "[TORQEEDO] Thread stopped." << std::endl;
+    std::cout << "[jetbrain] Thread stopped." << std::endl;
 }
 
-void publish_gps(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
+void publish_gps_data(mqtt::async_client& client, int interval_seconds, const std::string& serial_id) {
     // Configure a random number generator for latitude and longitude
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
             message_callback(msg);
         });
 
-        int torqeedo_interval = 5;  // Interval for torqeedo in seconds
+        int jetbrain_interval = 5;  // Interval for jetbrain in seconds
         int gps_interval = 3;       // Interval for GPS in seconds
 
         // Generate a random serial ID
@@ -168,8 +168,8 @@ int main(int argc, char* argv[]) {
         std::string serial_id = "GPS_" + std::to_string(std::rand() % 10000);
 
         // Start threads for sending messages
-        std::thread torqeedo_thread(publish_torqeedo, std::ref(client), torqeedo_interval, serial_id);
-        std::thread gps_thread(publish_gps, std::ref(client), gps_interval, serial_id);
+        std::thread jetbrain_thread(publish_jetbrain_data, std::ref(client), jetbrain_interval, serial_id);
+        std::thread gps_thread(publish_gps_data, std::ref(client), gps_interval, serial_id);
 
         // Main loop to monitor the connection
         while (running) {
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Wait for threads to stop
-        torqeedo_thread.join();
+        jetbrain_thread.join();
         gps_thread.join();
 
         // Disconnect from the MQTT broker

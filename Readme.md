@@ -107,21 +107,22 @@ clean:
    ./mqtt_client
    ```
 
-### Résumé des Étapes d'Installation
-1. **CMake** : Installez CMake si ce n'est pas déjà fait.
-2. **Paho MQTT C** :
-   - Clonez, compilez et installez la bibliothèque C.
-3. **Paho MQTT C++** :
-   - Clonez, compilez et installez la bibliothèque C++.
-4. **nlohmann/json** :
-   - Téléchargez le fichier d'en-tête `json.hpp` et ajoutez-le à `/usr/local/include`.
-5. **Compilation** :
-   - Utilisez le `Makefile` pour compiler votre code.
+### Installation Steps Summary
 
-Avec ces étapes, vous devriez être en mesure de compiler et exécuter votre programme MQTT en C++. N'oubliez pas de vérifier que les droits d'accès sont suffisants (certaines commandes peuvent nécessiter l'utilisation de `sudo`).
+1. **CMake**: Install CMake if it is not already installed.
+2. **Paho MQTT C**:
+   - Clone, build, and install the C library.
+3. **Paho MQTT C++**:
+   - Clone, build, and install the C++ library.
+4. **nlohmann/json**:
+   - Download the `json.hpp` header file and add it to `/usr/local/include`.
+5. **Compilation**:
+   - Use the `Makefile` to compile your code.
 
+Following these steps, you should be able to compile and run your MQTT program in C++. Remember to ensure sufficient access rights (some commands may require the use of `sudo`).
 
-
-## Important :
+## Important:
+```bash
 export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 ./mqtt_client
+```
